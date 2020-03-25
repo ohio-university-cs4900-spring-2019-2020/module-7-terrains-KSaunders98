@@ -29,7 +29,6 @@
 #include "WOLight.h"
 #include "WOPhysXTerrain.h"
 #include "WOSkyBox.h"
-#include "WOStaticTriangleMesh.h"
 
 #include "NetMsgNewModel.h"
 #include "NetMsgUpdateModel.h"
@@ -203,23 +202,11 @@ void Aftr::GLViewTerrainModule::loadMap()
     wo->renderOrderType = RENDER_ORDER_TYPE::roOPAQUE;
     worldLst->push_back(wo);
 
-    /*WOPhysXActor* mountain = WOStaticTriangleMesh::New(mountainPath, Vector(1, 1, 1), MESH_SHADING_TYPE::mstFLAT);
-    mountain->setPosition(Vector(0, 0, 18));
-    mountain->renderOrderType = RENDER_ORDER_TYPE::roOPAQUE;
-    worldLst->push_back(mountain);
-    if (physxEngine != nullptr) {
-        mountain->setPhysXEngine(physxEngine);
-    }*/
+    float top = AftrUtilities::toDouble(ManagerEnvironmentConfiguration::getVariableValue("Top"));
+    float bottom = AftrUtilities::toDouble(ManagerEnvironmentConfiguration::getVariableValue("Bottom"));
 
-    /*float top = 34.2072593790098f;
-    float bottom = 33.9980272592999f;*/
-    float top = 38.7757;
-    float bottom = 38.7162;
-
-    /*float left = -118.65234375f;
-    float right = -118.443603515625f;*/
-    float left = -82.2754;
-    float right = -82.1792;
+    float left = AftrUtilities::toDouble(ManagerEnvironmentConfiguration::getVariableValue("Left"));
+    float right = AftrUtilities::toDouble(ManagerEnvironmentConfiguration::getVariableValue("Right"));
 
     float vert = top - bottom;
     float horz = right - left;
@@ -229,18 +216,17 @@ void Aftr::GLViewTerrainModule::loadMap()
     terrainNormal = centerOfWorld.normalizeMe();
 
     if (physxEngine != nullptr) {
+        // set gravity along terrain normal
         physxEngine->setGravity(terrainNormal * -Aftr::GRAVITY);
     }
-
-    const int gran = 50;
-
-    std::string wood = ManagerEnvironmentConfiguration::getLMM() + "/images/elev2.tif";
 
     VectorD scale = VectorD(1.0f, 1.0f, 1.0f);
     VectorD upperLeft(top, left, 0);
     VectorD lowerRight(bottom, right, 0);
 
-    WOPhysXTerrain* grid = WOPhysXTerrain::New(upperLeft, lowerRight, 0, offset, scale, wood, 2, 0, false);
+    // load elevation data as a grid with a PhysX actor
+    std::string elev = ManagerEnvironmentConfiguration::getLMM() + "/images/" + ManagerEnvironmentConfiguration::getVariableValue("Elevation");
+    WOPhysXTerrain* grid = WOPhysXTerrain::New(upperLeft, lowerRight, 0, offset, scale, elev, 2, 0, false);
     grid->setPosition(0, 0, -500);
     grid->setLabel("grid");
     worldLst->push_back(grid);
@@ -248,8 +234,10 @@ void Aftr::GLViewTerrainModule::loadMap()
         grid->setPhysXEngine(physxEngine);
     }
 
+    // load and set texture to grid
+    Texture* tex = ManagerTexture::loadTexture(ManagerEnvironmentConfiguration::getLMM() + "/images/" + ManagerEnvironmentConfiguration::getVariableValue("Imagery"));
     for (size_t i = 0; i < grid->getModel()->getModelDataShared()->getModelMeshes().size(); i++)
-        grid->getModel()->getModelDataShared()->getModelMeshes().at(i)->getSkin().getMultiTextureSet().at(0) = ManagerTexture::loadTexture(ManagerEnvironmentConfiguration::getLMM() + "/images/test3.png");
+        grid->getModel()->getModelDataShared()->getModelMeshes().at(i)->getSkin().getMultiTextureSet().at(0) = tex;
     grid->getModel()->isUsingBlending(false);
 }
 
@@ -263,11 +251,11 @@ void GLViewTerrainModule::spawnNewModel(const std::string& path, const Vector& s
 
     if (sendMsg) {
         // send msg to other instance
-        /*NetMsgNewModel msg;
+        NetMsgNewModel msg;
         msg.path = path;
         msg.scale = scale;
         msg.position = position;
-        netClient->sendNetMsgSynchronousTCP(msg);*/
+        netClient->sendNetMsgSynchronousTCP(msg);
     }
 
     if (physxEngine != nullptr) {
@@ -278,11 +266,11 @@ void GLViewTerrainModule::spawnNewModel(const std::string& path, const Vector& s
 
         model->setPhysXUpdateCallback([this, id, model]() {
             // send update message to other instance
-            /*NetMsgUpdateModel msg;
+            NetMsgUpdateModel msg;
             msg.id = id;
             msg.displayMatrix = model->getDisplayMatrix();
             msg.position = model->getPosition();
-            netClient->sendNetMsgSynchronousTCP(msg);*/
+            netClient->sendNetMsgSynchronousTCP(msg);
         });
     }
 }
